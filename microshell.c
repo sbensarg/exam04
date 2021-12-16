@@ -6,7 +6,7 @@
 /*   By: sbensarg <sbensarg@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/12/12 16:42:36 by sbensarg          #+#    #+#             */
-/*   Updated: 2021/12/15 16:20:20 by sbensarg         ###   ########.fr       */
+/*   Updated: 2021/12/16 02:07:41 by sbensarg         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,21 +28,7 @@ void ft_cd(char *cmd)
         write(2, "\n", 2);
     }
 }
-int if_b_in(char **cmd)
-{
-    int j;
 
-    j = 0;
-    if (!strcmp(cmd[j], "cd"))
-    {
-        if (cmd[j + 2] || cmd[j + 1] == NULL)
-            write(2, "error: cd: bad arguments\n", 26);
-        else if (cmd[j + 1])
-            ft_cd(cmd[j + 1]);
-        return (1);
-    }
-    return (0);
-}
 int main(int argc, char **argv, char **env)
 {
     char *cmd[1024];
@@ -54,6 +40,7 @@ int main(int argc, char **argv, char **env)
     int flag;
     int ret;
 	fd_in = 0;
+	flag = 0;
     while (k < 1024)
     {
         cmd[k] = NULL;
@@ -61,7 +48,7 @@ int main(int argc, char **argv, char **env)
     }
     while (argv[i-1])
     {
-        if ((argv[i] != NULL && !strcmp(argv[i], "|")) || argv[i] == NULL)
+        if ((argv[i] != NULL && !strcmp(argv[i], "|")))
         {
 			j = 0;
             if (!strcmp(cmd[j], "cd"))
@@ -73,8 +60,18 @@ int main(int argc, char **argv, char **env)
             }
             else
             {
-                pipe(p);
+				flag = 1;
+                if (pipe(p) == -1)
+				{
+					write(2, "error: fatal\n", 14);
+					exit(EXIT_FAILURE);
+				}
                 pid = fork();
+				if (pid == -1)
+				{
+					write(2, "error: fatal\n", 14);
+					exit(EXIT_FAILURE);
+				}
                 if (pid == 0)
                 {
                     dup2(fd_in, 0);
@@ -83,8 +80,17 @@ int main(int argc, char **argv, char **env)
                     	dup2(p[1], 1);
 					}
                     close(p[0]);
-                    execve(cmd[0], cmd, NULL);
+                    ret = execve(cmd[0], cmd, NULL);
+					if (ret == -1)
+					{
+						write(2, "error: cannot execute ", 22);
+						write(2, cmd[j], strlen(cmd[j]));
+						write(2, "\n", 2);
+						exit(EXIT_FAILURE);
+					}
                 }
+				else
+					waitpid(pid, NULL, 0);
             }
             int m = 0;
             while (m < 1024)
@@ -96,48 +102,55 @@ int main(int argc, char **argv, char **env)
         else if (argv[i] == NULL || !strcmp(argv[i], ";"))
         {
             j = 0;
-            if (!strcmp(cmd[j], "cd"))
-            {
-                if (cmd[j + 2] || cmd[j + 1] == NULL)
-                    write(2, "error: cd: bad arguments\n", 26);
-                else if (cmd[j + 1])
-                    ft_cd(cmd[j + 1]);
-            }
-            else
-            {
-                pid = fork();
-                if (pid == 0)
-                {
-                    ret = execve(cmd[j], cmd, env);
-                     cmd[j] = NULL;
-                    if (ret == -1)
-                    {
-                            write(2, "error: cannot execute ", 22);
-                            write(2, cmd[j], strlen(cmd[j]));
-                            write(2, "\n", 2);
-                    }
-                }
-            }
-            int m = 0;
-            while (m < 1024)
-            {
-                cmd[m] = NULL;
-                m++;
-            }
+			if (cmd[0] != NULL)
+			{
+				if (!strcmp(cmd[j], "cd"))
+				{
+					if (cmd[j + 2] || cmd[j + 1] == NULL)
+						write(2, "error: cd: bad arguments\n", 26);
+					else if (cmd[j + 1])
+						ft_cd(cmd[j + 1]);
+				}
+				else
+				{
+					pid = fork();
+					if (pid == 0)
+					{
+						if (flag == 1)
+							dup2(fd_in, 0);
+						ret = execve(cmd[j], cmd, env);
+						if (ret == -1)
+						{
+							write(2, "error: cannot execute ", 22);
+							write(2, cmd[j], strlen(cmd[j]));
+							write(2, "\n", 2);
+							exit(EXIT_FAILURE);
+						}
+					}
+					else
+					{
+						waitpid(pid, NULL, 0);
+						flag = 0;
+					}
+				}
+				int m = 0;
+				while (m < 1024)
+				{
+					cmd[m] = NULL;
+					m++;
+				}
+			}
         }
         else
         {
             cmd[j] = argv[i];
-            close(p[1]);
-            fd_in = p[0];
-            j++;
+			if (flag == 1)
+			{
+            	fd_in = p[0];
+				close(p[1]);
+			}
+			j++;
         }
         i++;
     }
-	int m = 0;
-	while(m < j)
-	{
-		waitpid(pid, NULL, 0);
-		m++;
-	}
 }
