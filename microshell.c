@@ -3,19 +3,18 @@
 /*                                                        :::      ::::::::   */
 /*   microshell.c                                       :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: sbensarg <sbensarg@student.42.fr>          +#+  +:+       +#+        */
+/*   By: chicky <chicky@student.42.fr>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2021/12/12 16:42:36 by sbensarg          #+#    #+#             */
-/*   Updated: 2021/12/21 16:59:21 by sbensarg         ###   ########.fr       */
+/*   Updated: 2021/12/24 22:26:39 by chicky           ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 
-int	fd_in;
-int	p[2];
     
 void	ft_cd(char *cmd)
 {
@@ -39,6 +38,8 @@ int main(int argc, char **argv, char **env)
     pid_t	pid;
     int		flag;
     int		ret;
+	int	fd_in;
+	int	p[2];
 	int fd_old;
 
 	fd_in = 0;
@@ -80,13 +81,10 @@ int main(int argc, char **argv, char **env)
                 if (pid == 0)
                 {
                     dup2(fd_in, 0);
-					if (argv[i] != NULL)
-					{
-                    	dup2(p[1], 1);
-						close(p[1]);
-					}
+					dup2(p[1], 1);
+					close(p[1]);
                     close(p[0]);
-                    ret = execve(cmd[0], cmd, NULL);
+                    ret = execve(cmd[0], cmd, env);
 					if (ret == -1)
 					{
 						write(2, "error: cannot execute ", 22);
@@ -167,4 +165,7 @@ int main(int argc, char **argv, char **env)
         }
         i++;
     }
+	close(p[0]);
+	close(p[1]);
+	return (0);
 }
